@@ -1,1 +1,296 @@
-# SCRIPT-PAINEL-ADMINV1
+-- PAINEL ADMIN | VINIZIN - Brookhaven Edition
+-- Otimizado para Delta Executor
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Variáveis do GUI
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = nil
+local PlayerList = nil
+local SelectedPlayer = nil
+
+-- Cores profissionais
+local Colors = {
+    Primary = Color3.fromRGB(25, 25, 35),
+    Secondary = Color3.fromRGB(45, 45, 60),
+    Accent = Color3.fromRGB(100, 200, 255),
+    Success = Color3.fromRGB(100, 255, 150),
+    Danger = Color3.fromRGB(255, 100, 100),
+    Warning = Color3.fromRGB(255, 200, 100),
+    Text = Color3.fromRGB(255, 255, 255),
+    TextDark = Color3.fromRGB(200, 200, 200)
+}
+
+-- Função para criar cantos arredondados
+local function CreateCorner(parent, radius)
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, radius or 12)
+    Corner.Parent = parent
+    return Corner
+end
+
+-- Função para criar gradiente
+local function CreateGradient(parent)
+    local Gradient = Instance.new("UIGradient")
+    Gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Colors.Primary),
+        ColorSequenceKeypoint.new(1, Colors.Secondary)
+    }
+    Gradient.Rotation = 45
+    Gradient.Parent = parent
+    return Gradient
+end
+
+-- Criar GUI Principal
+function CreateAdminPanel()
+    ScreenGui.Name = "VinizinAdminPanel"
+    ScreenGui.Parent = PlayerGui
+    ScreenGui.ResetOnSpawn = false
+    
+    -- Frame Principal
+    MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Colors.Primary
+    MainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+    MainFrame.Size = UDim2.new(0, 500, 0, 400)
+    MainFrame.ClipsDescendants = true
+    CreateCorner(MainFrame, 16)
+    CreateGradient(MainFrame)
+    
+    -- Título
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Parent = MainFrame
+    Title.BackgroundTransparency = 1
+    Title.Position = UDim2.new(0, 20, 0, 15)
+    Title.Size = UDim2.new(1, -40, 0, 40)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "PAINEL ADMIN | VINIZIN"
+    Title.TextColor3 = Colors.Accent
+    Title.TextScaled = true
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Botão Fechar
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Name = "CloseBtn"
+    CloseBtn.Parent = MainFrame
+    CloseBtn.BackgroundColor3 = Colors.Danger
+    CloseBtn.Position = UDim2.new(1, -45, 0, 15)
+    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.Text = "×"
+    CloseBtn.TextColor3 = Colors.Text
+    CloseBtn.TextScaled = true
+    CreateCorner(CloseBtn, 8)
+    
+    CloseBtn.MouseButton1Click:Connect(function()
+        MainFrame:Destroy()
+    end)
+    
+    -- Lista de Players
+    PlayerList = Instance.new("ScrollingFrame")
+    PlayerList.Name = "PlayerList"
+    PlayerList.Parent = MainFrame
+    PlayerList.BackgroundColor3 = Colors.Secondary
+    PlayerList.Position = UDim2.new(0, 20, 0, 70)
+    PlayerList.Size = UDim2.new(0, 200, 0, 280)
+    PlayerList.ScrollBarThickness = 6
+    PlayerList.ScrollBarImageColor3 = Colors.Accent
+    CreateCorner(PlayerList, 12)
+    
+    -- Botões de Ações
+    local ActionFrame = Instance.new("Frame")
+    ActionFrame.Name = "ActionFrame"
+    ActionFrame.Parent = MainFrame
+    ActionFrame.BackgroundTransparency = 1
+    ActionFrame.Position = UDim2.new(0, 240, 0, 70)
+    ActionFrame.Size = UDim2.new(0, 240, 0, 280)
+    
+    -- Botões
+    local Buttons = {
+        {Name = "View", Color = Colors.Success},
+        {Name = "Kill", Color = Colors.Danger},
+        {Name = "Ban", Color = Colors.Danger},
+        {Name = "Kick", Color = Colors.Warning},
+        {Name = "Fling", Color = Colors.Accent},
+        {Name = "Tag", Color = Colors.Primary}
+    }
+    
+    for i, btnData in ipairs(Buttons) do
+        local Button = Instance.new("TextButton")
+        Button.Name = btnData.Name
+        Button.Parent = ActionFrame
+        Button.BackgroundColor3 = btnData.Color
+        Button.Position = UDim2.new(0, 10, 0, (i-1)*40 + 10)
+        Button.Size = UDim2.new(1, -20, 0, 35)
+        Button.Font = Enum.Font.GothamSemibold
+        Button.Text = btnData.Name
+        Button.TextColor3 = Colors.Text
+        Button.TextScaled = true
+        CreateCorner(Button, 10)
+        
+        Button.MouseButton1Click:Connect(function()
+            if SelectedPlayer then
+                ExecuteAction(btnData.Name:lower(), SelectedPlayer)
+            else
+                -- Notificação de erro
+                print("Selecione um player primeiro!")
+            end
+        end)
+    end
+    
+    -- Campo para Tag
+    local TagFrame = Instance.new("Frame")
+    TagFrame.Name = "TagFrame"
+    TagFrame.Parent = ActionFrame
+    TagFrame.BackgroundColor3 = Colors.Secondary
+    TagFrame.Position = UDim2.new(0, 10, 0, 260)
+    TagFrame.Size = UDim2.new(1, -20, 0, 30)
+    CreateCorner(TagFrame, 8)
+    
+    local TagLabel = Instance.new("TextLabel")
+    TagLabel.Parent = TagFrame
+    TagLabel.BackgroundTransparency = 1
+    TagLabel.Size = UDim2.new(0.3, 0, 1, 0)
+    TagLabel.Font = Enum.Font.Gotham
+    TagLabel.Text = "Tag:"
+    TagLabel.TextColor3 = Colors.Text
+    TagLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TagLabel.TextScaled = true
+    
+    local TagInput = Instance.new("TextBox")
+    TagInput.Name = "TagInput"
+    TagInput.Parent = TagFrame
+    TagInput.BackgroundTransparency = 1
+    TagInput.Position = UDim2.new(0.35, 0, 0, 0)
+    TagInput.Size = UDim2.new(0.65, 0, 1, 0)
+    TagInput.Font = Enum.Font.Gotham
+    TagInput.PlaceholderText = "Digite a tag..."
+    TagInput.Text = ""
+    TagInput.TextColor3 = Colors.Text
+    TagInput.TextXAlignment = Enum.TextXAlignment.Left
+    
+    UpdatePlayerList()
+end
+
+-- Atualizar lista de players
+function UpdatePlayerList()
+    if PlayerList then
+        for _, child in pairs(PlayerList:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        
+        local yPos = 0
+        for _, player in pairs(Players:GetPlayers()) do
+            local PlayerBtn = Instance.new("TextButton")
+            PlayerBtn.Name = player.Name
+            PlayerBtn.Parent = PlayerList
+            PlayerBtn.BackgroundColor3 = SelectedPlayer == player and Colors.Accent or Colors.Primary
+            PlayerBtn.Position = UDim2.new(0, 10, 0, yPos)
+            PlayerBtn.Size = UDim2.new(1, -20, 0, 35)
+            PlayerBtn.Font = Enum.Font.GothamSemibold
+            PlayerBtn.Text = player.Name .. " (" .. player.DisplayName .. ")"
+            PlayerBtn.TextColor3 = Colors.Text
+            PlayerBtn.TextScaled = true
+            PlayerBtn.TextXAlignment = Enum.TextXAlignment.Left
+            CreateCorner(PlayerBtn, 8)
+            
+            PlayerBtn.MouseButton1Click:Connect(function()
+                SelectedPlayer = player
+                UpdatePlayerList()
+            end)
+            
+            yPos = yPos + 40
+        end
+        
+        PlayerList.CanvasSize = UDim2.new(0, 0, 0, yPos)
+    end
+end
+
+-- Executar ações
+function ExecuteAction(action, targetPlayer)
+    if not targetPlayer or not targetPlayer.Parent then return end
+    
+    local success, result = pcall(function()
+        if action == "view" then
+            -- View/TP para player
+            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+            end
+        elseif action == "kill" then
+            -- Kill player
+            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
+                targetPlayer.Character.Humanoid.Health = 0
+            end
+        elseif action == "ban" then
+            -- Kick/Ban (simulado)
+            targetPlayer:Kick("Você foi banido pelo ADMIN VINIZIN!")
+        elseif action == "kick" then
+            -- Kick player
+            targetPlayer:Kick("Você foi kickado pelo ADMIN VINIZIN!")
+        elseif action == "fling" then
+            -- Fling player
+            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = targetPlayer.Character.HumanoidRootPart
+                local bv = Instance.new("BodyVelocity")
+                bv.MaxForce = Vector3.new(4000, 4000, 4000)
+                bv.Velocity = Vector3.new(math.random(-100,100), 200, math.random(-100,100))
+                bv.Parent = hrp
+                game:GetService("Debris"):AddItem(bv, 0.5)
+            end
+        elseif action == "tag" then
+            -- Tag player
+            local TagInput = MainFrame.ActionFrame.TagFrame.TagInput
+            if TagInput.Text ~= "" and targetPlayer.Character then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Size = UDim2.new(0, 200, 0, 50)
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.Parent = targetPlayer.Character.Head
+                
+                local tagLabel = Instance.new("TextLabel")
+                tagLabel.Size = UDim2.new(1, 0, 1, 0)
+                tagLabel.BackgroundTransparency = 1
+                tagLabel.Font = Enum.Font.GothamBold
+                tagLabel.Text = TagInput.Text
+                tagLabel.TextColor3 = Colors.Accent
+                tagLabel.TextScaled = true
+                tagLabel.Parent = billboard
+            end
+        end
+    end)
+    
+    if success then
+        print("✅ Ação '" .. action .. "' executada em " .. targetPlayer.Name)
+    else
+        print("❌ Erro ao executar " .. action .. " em " .. targetPlayer.Name)
+    end
+end
+
+-- Auto-update lista de players
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
+
+-- Criar painel
+CreateAdminPanel()
+
+-- Toggle com Insert
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Insert then
+        if MainFrame then
+            MainFrame.Visible = not MainFrame.Visible
+        end
+    end
+end)
+
+print("🎮 PAINEL ADMIN | VINIZIN carregado!")
+print("👉 Pressione INSERT para toggle")
